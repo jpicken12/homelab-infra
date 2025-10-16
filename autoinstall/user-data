@@ -1,8 +1,24 @@
 #cloud-config
 autoinstall:
+  version: 1
   source:
     id: ubuntu-server-minimal
   locale: en_GB.utf8
   Keyboard: 
-    layout: uk
-  timezond: Europe/London
+    layout: gb
+  timezone: Europe/London
+  network:
+    version: 2
+    ethernets:
+      enp1s0:
+        dhcp4: true
+      wlp1s0:
+        dhcp4: true
+  identity:
+    username: homelab
+    hostname: homelab
+    password: 
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys: [ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOMRHL8lbpNJ7ZZBH+GyPW5dOG7Uvs6ocWDULWkauAUEILF9T2wd4QlG5lkVQOybKbm8vImGol8mdWISBNdzwLIG76SAOgZVZ4lBqRQi3uN7y7lyT47iMhPlXfi0FSFRs8Btsu/rhSlnLukWt/qRhoavGTS0Kmci9nKtXv4Y03FjMzDoa45tNxiDRWzsNgWcd+FYvK5fkE//46j3PrU+dE/b1PaAecs1+Fomor+vvWgSUcVRBBkLWtFR/9EmyDmZShUsW2xMUK2LO4KNVe6PMK4j/5os/2A4+JGHE3Dh8SGyQ+3P6E1VOeQ8uSlJAkiTKU0aygPS217HxTFi/aeNel james@Jp-laptop]
