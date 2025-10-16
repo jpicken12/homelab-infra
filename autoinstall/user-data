@@ -1,0 +1,8 @@
+#cloud-config
+autoinstall:
+  source:
+    id: ubuntu-server-minimal
+  locale: en_GB.utf8
+  Keyboard: 
+    layout: uk
+  timezond: Europe/London
