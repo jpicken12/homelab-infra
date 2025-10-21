@@ -16,6 +16,7 @@ autoinstall:
   storage:
     layout:
     name: direct
+  updates: security
   ssh:
     install-server: true
     allow-pw: false
