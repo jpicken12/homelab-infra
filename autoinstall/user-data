@@ -4,21 +4,57 @@ autoinstall:
   source:
     id: ubuntu-server-minimal
   locale: en_GB.utf8
-  Keyboard: 
+  Keyboard:
     layout: gb
   timezone: Europe/London
-  network:
-    version: 2
-    ethernets:
-      enp1s0:
-        dhcp4: true
-      wlp1s0:
-        dhcp4: true
   identity:
     username: homelab
     hostname: homelab
-    password: 
+    # No password here - we set it later during late-commands
+  packages:
+    - net-tools
+  storage:
+    layout:
+    name: direct
   ssh:
     install-server: true
     allow-pw: false
-    authorized-keys: [ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOMRHL8lbpNJ7ZZBH+GyPW5dOG7Uvs6ocWDULWkauAUEILF9T2wd4QlG5lkVQOybKbm8vImGol8mdWISBNdzwLIG76SAOgZVZ4lBqRQi3uN7y7lyT47iMhPlXfi0FSFRs8Btsu/rhSlnLukWt/qRhoavGTS0Kmci9nKtXv4Y03FjMzDoa45tNxiDRWzsNgWcd+FYvK5fkE//46j3PrU+dE/b1PaAecs1+Fomor+vvWgSUcVRBBkLWtFR/9EmyDmZShUsW2xMUK2LO4KNVe6PMK4j/5os/2A4+JGHE3Dh8SGyQ+3P6E1VOeQ8uSlJAkiTKU0aygPS217HxTFi/aeNel james@Jp-laptop]
+    authorized-keys:
+      - sh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHO0jLm7mS88JBfCgtQ/8TsnpWt0useE3GPgGmN/YPdV homelab access key
+  late-commands:
+    # 1) Set the homelab user's password from the USB secret (file: /cdrom/secrets/user_pass)
+    - curtin in-target --target=/target /bin/bash -c "if [ -f /cdrom/secrets/user_pass ]; then PW=$(sed -n '1p' /cdrom/secrets/user_pass); echo 'data:'\$PW | chpasswd; fi"
+    # 2) Create a Netplan Wi-Fi file inside the installed system using USB secrets
+    - |
+      curtin in-target --target=/target /bin/bash -c "if [ -f /cdrom/secrets/wifi_ssid ] && [ -f /cdrom/secrets/wifi_pass ]; then SSID=\$(sed -n '1p' /cdrom/secrets/wifi_ssid); PWD=\$(sed -n '1p' /cdrom/secrets/wifi_pass); cat >/etc/netplan/50-wifi.yaml <<EOF
+      network:
+      version: 2
+      renderer: networkd
+      wifis:
+        all-wifi:
+          match:
+            name: 'wl*'
+          dhcp4: true
+          access-points:
+            "$SSID":
+              password: "$PWD"
+      EOF
+      netplan generate
+      netplan apply
+      fi"
+
+    # 3) (Optional) Remove secrets from the installed system to reduce exposure
+    - curtin in-target --target=/target /bin/bash -c "rm -f /cdrom/secrets/* || true"
+    - curtin in-target --target=/target bash -c "apt update && apt install -y curl ca-certificates apt-transport-https gnupg lsb-release"
+    - curtin in-target --target=/target bash -c 'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
+    - curtin in-target --target=/target bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
+    - curtin in-target --target=/target bash -c "apt update && apt install -y docker-ce docker-ce-cli containerd.io"
+    - curtin in-target --target=/target bash -c "systemctl enable docker"
+    - curtin in-target --target=/target bash -c "curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
+  user-data:
+    runcmd:
+      - |
+        #!/bin/bash
+        if ! k3d cluster list | grep -q mycluster; then
+          k3d cluster create mycluster --servers 1 --agents 2 --port "8080:80@loadbalancer"
+        fi
